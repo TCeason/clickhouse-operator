@@ -88,8 +88,10 @@ func (c *Creator) CreateServiceCHI() *corev1.Service {
 				},
 			},
 			Selector:              c.labeler.getSelectorCHIScopeReady(),
+			/* default use ClusterIP type
 			Type:                  corev1.ServiceTypeLoadBalancer,
-			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,*/
+			Type:                  corev1.ServiceTypeClusterIP,
 		},
 	}
 	MakeObjectVersionLabel(&svc.ObjectMeta, svc)

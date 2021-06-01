@@ -30,7 +30,8 @@ const (
 	// Special auto-generated clusters. Each of these clusters lay over all replicas in CHI
 	// 1. Cluster with one shard and all replicas. Used to duplicate data over all replicas.
 	// 2. Cluster with all shards (1 replica). Used to gather/scatter data over all replicas.
-	oneShardAllReplicasClusterName = "all-replicated"
+	physical_consistency_cluster = "physical_consistency_cluster"
+	logical_consistency_cluster = "logical_consistency_cluster"
 	allShardsOneReplicaClusterName = "all-sharded"
 )
 
@@ -266,6 +267,10 @@ func (c *ClickHouseConfigGenerator) GetRemoteServers(options *RemoteServersGener
 
 	// <yandex>
 	//		<remote_servers>
+	c.chi.WalkClusters(func(cluster *chiv1.ChiCluster) error {
+		util.Iline(b, 4, "<default_on_cluster_name>%s</default_on_cluster_name>", cluster.Name)
+		return nil
+	})
 	util.Iline(b, 0, "<"+xmlTagYandex+">")
 	util.Iline(b, 4, "<remote_servers>")
 
@@ -333,10 +338,35 @@ func (c *ClickHouseConfigGenerator) GetRemoteServers(options *RemoteServersGener
 		// <my_cluster_name>
 		//     <shard>
 		//         <internal_replication>
-		clusterName := oneShardAllReplicasClusterName
+		clusterName := physical_consistency_cluster
 		util.Iline(b, 8, "<%s>", clusterName)
 		util.Iline(b, 8, "    <shard>")
 		util.Iline(b, 8, "        <internal_replication>true</internal_replication>")
+		c.chi.WalkHosts(func(host *chiv1.ChiHost) error {
+			if options.Include(host) {
+				// <replica>
+				//		<host>XXX</host>
+				//		<port>XXX</port>
+				// </replica>
+				util.Iline(b, 16, "<replica>")
+				util.Iline(b, 16, "    <host>%s</host>", c.getRemoteServersReplicaHostname(host))
+				util.Iline(b, 16, "    <port>%d</port>", host.TCPPort)
+				util.Iline(b, 16, "</replica>")
+			}
+			return nil
+		})
+
+		//     </shard>
+		// </my_cluster_name>
+		util.Iline(b, 8, "    </shard>")
+		util.Iline(b, 8, "</%s>", clusterName)
+
+		// // logical_consistency_cluster
+		//
+		// <my_cluster_name>
+		clusterName = logical_consistency_cluster
+		util.Iline(b, 8, "<%s>", clusterName)
+		util.Iline(b, 8, "    <shard>")
 		c.chi.WalkHosts(func(host *chiv1.ChiHost) error {
 			if options.Include(host) {
 				// <replica>
